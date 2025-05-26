@@ -1,0 +1,61 @@
+<head>
+  <meta charset="UTF-8" />
+  <title>Bem-vindo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .welcome-box {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+
+    p {
+      font-size: 1.1em;
+      color: #555;
+      margin-bottom: 30px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 12px 25px;
+      font-size: 1em;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="welcome-box">
+    <h1>Bem-vindo ao Sistema de Atendimentos</h1>
+    <p>Organize, acompanhe e gerencie seus atendimentos com facilidade.</p>
+     <button onclick="window.location.href='login.html'">Entrar</button>
+  <button onclick="window.location.href='register.html'">Cadastrar</button>
+  <button onclick="window.location.href='painel.html'">Painel Admin</button>
+
+  </div>
+</body>
