@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Atendimentos Simples</title>
+  <style>
+    body, html {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 0;
+      height: auto;
+      overflow-y: auto;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    input, select, button {
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    button {
+      width: auto;
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      margin-right: 5px;
+      padding: 10px 15px;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .btn-vermelho {
+      background-color: #dc3545;
+      margin-top: 15px;
+    }
+
+    .btn-vermelho:hover {
+      background-color: #c82333;
+    }
+
+    .card {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .card strong {
+      display: block;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+    }
+
+    #lista {
+      margin-top: 20px;
+      overflow: visible;
+    }
+
+    #adminArea {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    /* Modal - fundo */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Modal container */
+    .modal {
+      background: white;
+      padding: 20px 25px;
+      border-radius: 10px;
+      max-width: 500px;
+      width: 75%;
+      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+      position: relative;
+      padding-top: 60px;
+  
+    }
+
+    .modal h2 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #333;
+      font-size: 1.5em;
+      text-align: center;
+    }
+
+    .modal label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+
+    .modal input {
+      margin-bottom: 10px;
+    }
+
+    .modal button {
+      width: 33%;
+      margin: 10px 1%;
+    }
+ .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+    }
+    .close-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #666;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 1;
+  width: auto;
+  height: auto;
+}
+
+.close-modal:hover {
+  color: #000;
+}
+
+    .admin-info {
+      margin-top: 10px;
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Atendimentos</h1>
+    <label>Serviço:</label>
+    <input type="text" id="servico" placeholder="Serviço" />
+    <label>Cliente:</label>
+    <input type="text" id="cliente" placeholder="Cliente" />
+    <label>Data:</label>
+    <input type="date" id="data" />
+    <label>Hora:</label>
+    <input type="time" id="hora" />
+
+    <button onclick="adicionar()" class="btn-azul">Adicionar</button>
+
+    <div id="adminArea" class="admin-info"></div>
+
+    <div id="lista"></div>
+
+    <button type="button" onclick="logout()" class="btn-vermelho logout-button">Sair</button>
+  </div>
+
+  <!-- Modal de edição -->
+  <div id="modalEditar" class="modal-bg">
+    <div class="modal">
+       <button class="modal-close-btn" onclick="fecharModal()" aria-label="Fechar modal">&times;</button>
+      <h2>Editar Atendimento</h2>
+      <label for="editServico">Serviço:</label>
+      <input type="text" id="editServico" placeholder="Serviço">
+      <label for="editCliente">Cliente:</label>
+      <input type="text" id="editCliente" placeholder="Cliente">
+      <label for="editData">Data:</label>
+      <input type="date" id="editData" />
+      <label for="editHora">Hora:</label>
+      <input type="time" id="editHora" />
+      <div style="text-align: center;">
+        <button onclick="salvarEdicao()" class="btn-azul">Salvar</button>
+        <button onclick="fecharModal()" class="btn-vermelho">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const api = 'http://localhost:3000/api/atendimentos';
+    const token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    let atendimentoEditando = null;
+
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.is_admin) {
+        document.getElementById('adminArea').textContent = 'Você é ADMINISTRADOR';
+      }
+    } catch (e) {
+      alert('Token inválido');
+      logout();
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    }
+
+    function carregar() {
+      fetch(api, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error(`Erro ${res.status}`);
+        return res.json();
+      })
+      .then(dados => {
+        const lista = document.getElementById('lista');
+        lista.innerHTML = '';
+        dados.forEach(a => {
+          const dataFormatada = a.data_atendimento ? new Date(a.data_atendimento).toLocaleDateString('pt-BR') : 'Data inválida';
+          const horaFormatada = a.hora ? a.hora.substring(0,5) : '--:--';
+
+          const div = document.createElement('div');
+          div.className = 'card';
+         div.innerHTML = `
+  <strong>${a.servico}</strong><br>
+  Cliente: ${a.cliente}<br>
+  Data: ${dataFormatada}<br>
+  Hora: ${horaFormatada}<br>
+  <button onclick='abrirModal(${a.id}, ${JSON.stringify(a.servico)}, ${JSON.stringify(a.cliente)}, "${a.data_atendimento ? a.data_atendimento.substring(0,10) : ''}", "${a.hora ? a.hora.substring(0,5) : ''}")'>Editar</button>
+  <button onclick="excluir(${a.id})">Excluir</button>
+`;
+
+          lista.appendChild(div); 
+        });
+      })
+      .catch(err => {
+        alert('Erro ao carregar atendimentos: ' + err.message);
+        console.error(err);
+      });
+    }
+
+    function adicionar() {
+      const servico = document.getElementById('servico').value.trim();
+      const cliente = document.getElementById('cliente').value.trim();
+      const data = document.getElementById('data').value.trim();
+      const hora = document.getElementById('hora').value.trim();
+
+      if (!servico || !cliente || !data || !hora) {
+        alert('Preencha todos os campos');
+        return;
+      }
+
+      fetch(api, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ data_atendimento: data, servico, cliente, hora })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Erro ao adicionar');
+        return res.json();
+      })
+      .then(() => {
+        alert('Atendimento adicionado com sucesso!');
+        document.getElementById('servico').value = '';
+        document.getElementById('cliente').value = '';
+        document.getElementById('data').value = '';
+        document.getElementById('hora').value = '';
+        carregar();
+      })
+      .catch(err => alert(err.message));
+    }
+
+    function excluir(id) {
+      if (!confirm('Confirma exclusão?')) return;
+
+      fetch(`${api}/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Erro ao excluir');
+        alert('Excluído!');
+        carregar();
+      })
+      .catch(err => alert(err.message));
+    }
+
+    function abrirModal(id, servico, cliente, data, hora) {
+      atendimentoEditando = id;
+      document.getElementById('editServico').value = servico;
+      document.getElementById('editCliente').value = cliente;
+      document.getElementById('editData').value = data;
+      document.getElementById('editHora').value = hora;
+      document.getElementById('modalEditar').style.display = 'flex';
+    }
+
+    function fecharModal() {
+      atendimentoEditando = null;
+      document.getElementById('modalEditar').style.display = 'none';
+    }
+
+    function salvarEdicao() {
+      const servico = document.getElementById('editServico').value.trim();
+      const cliente = document.getElementById('editCliente').value.trim();
+      const data = document.getElementById('editData').value.trim();
+      const hora = document.getElementById('editHora').value.trim();
+
+      if (!servico || !cliente || !data || !hora) {
+        alert('Preencha todos os campos para salvar!');
+        return;
+      }
+
+      fetch(`${api}/${atendimentoEditando}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ data_atendimento: data, servico, cliente, hora })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Erro ao atualizar');
+        alert('Atendimento atualizado com sucesso!');
+        fecharModal();
+        carregar();
+      })
+      .catch(err => alert(err.message));
+    }
+
+    // Função para escapar caracteres especiais para evitar bugs no HTML inserido
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

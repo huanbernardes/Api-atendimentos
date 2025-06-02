@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <form id="loginForm" autocomplete="yes">
+    <h2>Login</h2>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="senha" placeholder="Senha" required />
+    <button onclick="login()">Entrar</button>
+    <p>Não tem conta? <a href="register.html">Cadastre-se</a></p>
+  </form>
+
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const email = document.getElementById('email').value;
+    const senha = document.getElementById('senha').value;
+
+    try {
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, senha })
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.token) {
+        localStorage.setItem('token', data.token);
+
+        // Decodificar o token para verificar se é admin
+        const payload = JSON.parse(atob(data.token.split('.')[1]));
+        const isAdmin = payload.is_admin;
+
+        alert('Login realizado com sucesso!');
+
+        // Redirecionamento conforme o tipo de usuário
+        if (isAdmin) {
+          window.location.href = 'painel.html';
+        } else {
+          window.location.href = 'atendimentos.html';
+        }
+      } else {
+        alert(data.erro || 'Email ou senha inválidos.');
+      }
+    } catch (error) {
+      console.error('Erro na requisição:', error);
+      alert('Erro ao conectar com o servidor.');
+    }
+  });
+</script>
+
+
+</body>
+</html>

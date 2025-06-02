@@ -1,0 +1,38 @@
+
+
+<script>
+  
+  const token = localStorage.getItem('token');
+if (!token) {
+  // Se não tem token, redireciona para login
+  window.location.href = 'login.html';
+} else {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.is_admin) {
+      alert('Acesso negado: você não é administrador');
+      window.location.href = 'login.html';
+    }
+  } catch (e) {
+    alert('Token inválido');
+    localStorage.removeItem('token');
+    window.location.href = 'login.html';
+  }
+}
+
+  <button onclick="deletarAtendimento(5)">Deletar</button>
+function deletarAtendimento(id) {
+  fetch(`/api/atendimentos/${id}`, {
+    method: 'DELETE'
+  })
+  .then(res => res.json())
+  .then(data => alert(data.mensagem))
+  .catch(err => console.error('Erro ao deletar:', err));
+}
+
+
+
+</script>
+
+
+
