@@ -21,7 +21,7 @@
               <th>Data</th>
               <th>Serviço</th>
               <th>Cliente</th>
-              <th>hora</th>
+              <th>Hora</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -32,81 +32,88 @@
   </form>
 
   <script>
-  const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
 
-  if (!token) {
-    window.location.href = 'login.html';
-  } else {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (!payload.is_admin) {
-        alert('Acesso negado: você não é administrador');
-        window.location.href = 'login.html';
+    function validarAdmin() {
+      if (!token) return false;
+
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.is_admin;
+      } catch (e) {
+        return false;
       }
-    } catch (e) {
-      alert('Token inválido');
+    }
+
+    if (!validarAdmin()) {
+      alert('Acesso negado. Área restrita a administradores.');
       localStorage.removeItem('token');
       window.location.href = 'login.html';
     }
-  }
 
-  function logout() {
-    localStorage.removeItem('token');
-    window.location.href = 'login.html';
-  }
-
-  async function carregarAtendimentos() {
-    try {
-      const resposta = await fetch('/api/atendimentos', {
-        headers: {
-          'Authorization': 'Bearer ' + token
-        }
-      });
-      const atendimentos = await resposta.json();
-      const tbody = document.querySelector('#tabela-atendimentos tbody');
-      tbody.innerHTML = '';
-
-      atendimentos.forEach(a => {
-         const dataFormatada = a.data_atendimento 
-    ? new Date(a.data_atendimento).toLocaleDateString('pt-BR') 
-    : 'Data inválida';
-  const horaFormatada = a.hora ? a.hora.substring(0,5) : '--:--';
-
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td>${a.id}</td>
-    <td>${dataFormatada}</td>
-    <td>${a.servico}</td>
-    <td>${a.cliente}</td>
-    <td>${horaFormatada}</td>
-    <td><button type="button" onclick="deletarAtendimento(${a.id})">Deletar</button></td>
-  `;
-  tbody.appendChild(tr);
-      });
-    } catch (err) {
-      console.error('Erro ao carregar atendimentos:', err);
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
     }
-  }
 
-  async function deletarAtendimento(id) {
-    if (!confirm('Deseja realmente deletar o atendimento ID ' + id + '?')) return;
-    try {
-      const resposta = await fetch(`/api/atendimentos/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': 'Bearer ' + token
+    async function carregarAtendimentos() {
+      try {
+        const resposta = await fetch('/api/atendimentos', {
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
+
+        if (!resposta.ok) {
+          const erro = await resposta.json();
+          throw new Error(erro.mensagem || 'Erro ao buscar atendimentos');
         }
-      });
-      const data = await resposta.json();
-      alert(data.mensagem || 'Atendimento deletado');
-      carregarAtendimentos();
-    } catch (err) {
-      console.error('Erro ao deletar atendimento:', err);
+
+        const atendimentos = await resposta.json();
+        const tbody = document.querySelector('#tabela-atendimentos tbody');
+        tbody.innerHTML = '';
+
+        atendimentos.forEach(a => {
+          const dataFormatada = a.data ? new Date(a.data).toLocaleDateString('pt-BR') : 'Data inválida';
+          const horaFormatada = a.hora ? a.hora.substring(0, 5) : '--:--';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${a.id}</td>
+            <td>${dataFormatada}</td>
+            <td>${a.servico}</td>
+            <td>${a.nome_cliente || '---'}</td>
+            <td>${horaFormatada}</td>
+            <td><button type="button" onclick="deletarAtendimento(${a.id})">Deletar</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Erro ao carregar atendimentos: ' + err.message);
+      }
     }
-  }
 
-  carregarAtendimentos();
-</script>
+    async function deletarAtendimento(id) {
+      if (!confirm('Deseja realmente deletar o atendimento ID ' + id + '?')) return;
+      try {
+        const resposta = await fetch(`/api/atendimentos/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': 'Bearer ' + token
+          }
+        });
 
+        const data = await resposta.json();
+        if (!resposta.ok) throw new Error(data.mensagem);
+
+        alert(data.mensagem || 'Atendimento deletado');
+        carregarAtendimentos();
+      } catch (err) {
+        console.error('Erro ao deletar atendimento:' + err.message);
+      }
+    }
+
+    carregarAtendimentos();
+  </script>
 </body>
 </html>

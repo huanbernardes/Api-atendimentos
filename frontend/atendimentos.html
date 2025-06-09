@@ -164,8 +164,6 @@
       font-weight: bold;
     }
   </style>
-
-  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="container">
@@ -173,30 +171,26 @@
     <label>Serviço:</label>
     <input type="text" id="servico" placeholder="Serviço" />
     <label>Cliente:</label>
-    <input type="text" id="cliente" placeholder="Cliente" />
+    <select id="cliente" name="cliente"></select>
     <label>Data:</label>
     <input type="date" id="data" />
     <label>Hora:</label>
     <input type="time" id="hora" />
-
     <button onclick="adicionar()" class="btn-azul">Adicionar</button>
-
     <div id="adminArea" class="admin-info"></div>
-
     <div id="lista"></div>
-
     <button type="button" onclick="logout()" class="btn-vermelho logout-button">Sair</button>
   </div>
 
   <!-- Modal de edição -->
   <div id="modalEditar" class="modal-bg">
     <div class="modal">
-       <button class="modal-close-btn" onclick="fecharModal()" aria-label="Fechar modal">&times;</button>
+      <button class="close-modal" onclick="fecharModal()" aria-label="Fechar modal">&times;</button>
       <h2>Editar Atendimento</h2>
       <label for="editServico">Serviço:</label>
       <input type="text" id="editServico" placeholder="Serviço">
       <label for="editCliente">Cliente:</label>
-      <input type="text" id="editCliente" placeholder="Cliente">
+      <select id="editCliente"></select>
       <label for="editData">Data:</label>
       <input type="date" id="editData" />
       <label for="editHora">Hora:</label>
@@ -209,166 +203,258 @@
   </div>
 
   <script>
-    const api = 'http://localhost:3000/api/atendimentos';
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = 'login.html';
+  const api = 'http://localhost:3000/api/atendimentos';
+  const apiClientes = 'http://localhost:3000/api/clientes';
+  const token = localStorage.getItem('token');
+  let atendimentoEditando = null;
+
+  let clienteId = null;
+  let clienteNome = null;
+  let isAdmin = false;
+  let listaClientes = [];
+
+  if (!token) window.location.href = 'login.html';
+
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    clienteId = String(payload.id);
+    clienteNome = payload.email || '';
+    isAdmin = payload.is_admin === 1;
+    if (isAdmin) {
+      document.getElementById('adminArea').textContent = 'Você é ADMINISTRADOR';
     }
+    console.log('Token payload:', payload);
+    console.log('clienteId:', clienteId, 'clienteNome:', clienteNome);
+  } catch (e) {
+    alert('Token inválido');
+    logout();
+  }
 
-    let atendimentoEditando = null;
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = 'login.html';
+  }
 
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.is_admin) {
-        document.getElementById('adminArea').textContent = 'Você é ADMINISTRADOR';
-      }
-    } catch (e) {
-      alert('Token inválido');
-      logout();
-    }
-
-    function logout() {
-      localStorage.removeItem('token');
-      window.location.href = 'login.html';
-    }
-
-    function carregar() {
-      fetch(api, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      })
-      .then(res => {
-        if (!res.ok) throw new Error(`Erro ${res.status}`);
-        return res.json();
-      })
-      .then(dados => {
-        const lista = document.getElementById('lista');
-        lista.innerHTML = '';
-        dados.forEach(a => {
-          const dataFormatada = a.data_atendimento ? new Date(a.data_atendimento).toLocaleDateString('pt-BR') : 'Data inválida';
-          const horaFormatada = a.hora ? a.hora.substring(0,5) : '--:--';
-
-          const div = document.createElement('div');
-          div.className = 'card';
-         div.innerHTML = `
-  <strong>${a.servico}</strong><br>
-  Cliente: ${a.cliente}<br>
-  Data: ${dataFormatada}<br>
-  Hora: ${horaFormatada}<br>
-  <button onclick='abrirModal(${a.id}, ${JSON.stringify(a.servico)}, ${JSON.stringify(a.cliente)}, "${a.data_atendimento ? a.data_atendimento.substring(0,10) : ''}", "${a.hora ? a.hora.substring(0,5) : ''}")'>Editar</button>
-  <button onclick="excluir(${a.id})">Excluir</button>
-`;
-
-          lista.appendChild(div); 
-        });
-      })
-      .catch(err => {
-        alert('Erro ao carregar atendimentos: ' + err.message);
-        console.error(err);
+  function carregar() {
+    fetch(api, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => res.json())
+    .then(dados => {
+      const lista = document.getElementById('lista');
+      lista.innerHTML = '';
+      dados.forEach(a => {
+        const dataFormatada = a.data ? new Date(a.data).toLocaleDateString('pt-BR') : 'Data inválida';
+        const horaFormatada = a.hora ? a.hora.substring(0,5) : '--:--';
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <strong>${a.servico}</strong><br>
+          Cliente: ${a.nome_cliente || 'Cliente não informado'}<br>
+          Telefone: ${a.telefone_cliente || '---'}<br>
+          Data: ${dataFormatada}<br>
+          Hora: ${horaFormatada}<br>
+          <button onclick='abrirModal(${a.id}, "${a.servico}", ${a.cliente_id}, "${a.data}", "${a.hora}")'>Editar</button>
+          <button onclick="excluir(${a.id})">Excluir</button>
+        `;
+        lista.appendChild(div);
       });
+    })
+    .catch(err => alert('Erro ao carregar atendimentos: ' + err.message));
+  }
+
+  function preencherClienteDoToken() {
+    const select = document.getElementById('cliente');
+    select.innerHTML = '';
+    if (clienteId && clienteNome) {
+      const option = document.createElement('option');
+      option.value = clienteId;
+      option.textContent = clienteNome;
+      option.selected = true;
+      select.appendChild(option);
+      select.disabled = true;
     }
+  }
 
-    function adicionar() {
-      const servico = document.getElementById('servico').value.trim();
-      const cliente = document.getElementById('cliente').value.trim();
-      const data = document.getElementById('data').value.trim();
-      const hora = document.getElementById('hora').value.trim();
-
-      if (!servico || !cliente || !data || !hora) {
-        alert('Preencha todos os campos');
+  function carregarClientes() {
+    fetch(apiClientes, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => res.json())
+    .then(clientes => {
+      console.log('Clientes do servidor:', clientes);
+      if (!Array.isArray(clientes)) {
+        alert('Erro ao carregar clientes.');
         return;
       }
 
-      fetch(api, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify({ data_atendimento: data, servico, cliente, hora })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Erro ao adicionar');
-        return res.json();
-      })
-      .then(() => {
-        alert('Atendimento adicionado com sucesso!');
-        document.getElementById('servico').value = '';
-        document.getElementById('cliente').value = '';
-        document.getElementById('data').value = '';
-        document.getElementById('hora').value = '';
-        carregar();
-      })
-      .catch(err => alert(err.message));
+      listaClientes = clientes;
+
+      const select = document.getElementById('cliente');
+      select.innerHTML = '';
+
+      if (!isAdmin && clienteId && clienteNome) {
+        console.log('ClienteId e clienteNome detectados, listando apenas o cliente do token');
+        const option = document.createElement('option');
+        option.value = clienteId;
+        option.textContent = clienteNome;
+        option.selected = true;
+        select.appendChild(option);
+        select.disabled = true;
+      } else {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Selecione um cliente';
+        select.appendChild(option);
+
+        clientes.forEach(c => {
+          const option = document.createElement('option');
+          option.value = String(c.id);
+          option.textContent = c.nome;
+          select.appendChild(option);
+        });
+        select.disabled = false;
+      }
+    })
+    .catch(err => alert('Erro: ' + err.message));
+  }
+
+  function carregarClientesModal(clienteSelecionadoId = '') {
+  fetch(apiClientes, {
+    headers: { 'Authorization': 'Bearer ' + token }
+  })
+  .then(res => res.json())
+  .then(clientes => {
+    const select = document.getElementById('editCliente');
+    select.innerHTML = '';
+
+    if (clienteId && clienteNome) {
+      // Se o usuário logado é um cliente, mostra apenas ele e bloqueia
+      const option = document.createElement('option');
+      option.value = clienteId;
+      option.textContent = clienteNome;
+      option.selected = true;
+      select.appendChild(option);
+      select.disabled = true; // impede alteração
+    } else {
+      // Caso seja admin, pode selecionar qualquer cliente
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Selecione um cliente';
+      select.appendChild(option);
+
+      clientes.forEach(c => {
+        const option = document.createElement('option');
+        option.value = String(c.id);
+        option.textContent = c.nome;
+        if (String(c.id) === String(clienteSelecionadoId)) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+      select.disabled = false; // permite alteração
+    }
+  })
+  .catch(err => console.error('Erro ao carregar clientes no modal:', err));
+}
+
+  function abrirModal(id, servico, cliente_id, data, hora) {
+    atendimentoEditando = id;
+    document.getElementById('editServico').value = servico;
+    document.getElementById('editData').value = data;
+    document.getElementById('editHora').value = hora;
+    carregarClientesModal(cliente_id);
+    document.getElementById('modalEditar').style.display = 'flex';
+  }
+
+  function adicionar() {
+    const servico = document.getElementById('servico').value.trim();
+    const clienteSelect = document.getElementById('cliente');
+    const cliente_id = clienteSelect.value ? parseInt(clienteSelect.value) : null;
+    const data = document.getElementById('data').value;
+    const hora = document.getElementById('hora').value;
+
+    if (!servico || !cliente_id || !data || !hora) {
+      alert('Preencha todos os campos');
+      return;
     }
 
-    function excluir(id) {
-      if (!confirm('Confirma exclusão?')) return;
+    fetch(api, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ servico, cliente_id, data, hora })
+    })
+    .then(res => res.ok ? res.json() : Promise.reject('Erro ao adicionar'))
+    .then(() => {
+      alert('Atendimento adicionado com sucesso!');
+      document.getElementById('servico').value = '';
+      document.getElementById('data').value = '';
+      document.getElementById('hora').value = '';
 
-      fetch(`${api}/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + token }
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Erro ao excluir');
-        alert('Excluído!');
-        carregar();
-      })
-      .catch(err => alert(err.message));
-    }
-
-    function abrirModal(id, servico, cliente, data, hora) {
-      atendimentoEditando = id;
-      document.getElementById('editServico').value = servico;
-      document.getElementById('editCliente').value = cliente;
-      document.getElementById('editData').value = data;
-      document.getElementById('editHora').value = hora;
-      document.getElementById('modalEditar').style.display = 'flex';
-    }
-
-    function fecharModal() {
-      atendimentoEditando = null;
-      document.getElementById('modalEditar').style.display = 'none';
-    }
-
-    function salvarEdicao() {
-      const servico = document.getElementById('editServico').value.trim();
-      const cliente = document.getElementById('editCliente').value.trim();
-      const data = document.getElementById('editData').value.trim();
-      const hora = document.getElementById('editHora').value.trim();
-
-      if (!servico || !cliente || !data || !hora) {
-        alert('Preencha todos os campos para salvar!');
-        return;
+      // Só limpa o select se for admin
+      if (isAdmin) {
+        clienteSelect.value = '';
+      } else {
+        preencherClienteDoToken();
       }
 
-      fetch(`${api}/${atendimentoEditando}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token
-        },
-        body: JSON.stringify({ data_atendimento: data, servico, cliente, hora })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Erro ao atualizar');
-        alert('Atendimento atualizado com sucesso!');
-        fecharModal();
-        carregar();
-      })
-      .catch(err => alert(err.message));
+      carregar();
+    })
+    .catch(err => alert(err));
+  }
+
+  function excluir(id) {
+    if (!confirm('Tem certeza que deseja excluir?')) return;
+    fetch(`${api}/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => res.ok ? res.json() : Promise.reject('Erro ao excluir'))
+    .then(() => {
+      alert('Excluído com sucesso');
+      carregar();
+    })
+    .catch(err => alert(err));
+  }
+
+  function salvarEdicao() {
+    const servico = document.getElementById('editServico').value.trim();
+    const cliente_id = parseInt(document.getElementById('editCliente').value);
+    const data = document.getElementById('editData').value;
+    const hora = document.getElementById('editHora').value;
+
+    if (!servico || !cliente_id || !data || !hora) {
+      alert('Preencha todos os campos');
+      return;
     }
 
-    // Função para escapar caracteres especiais para evitar bugs no HTML inserido
-    function escapeHtml(text) {
-      return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
+    fetch(`${api}/${atendimentoEditando}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ servico, cliente_id, data, hora })
+    })
+    .then(res => res.ok ? res.json() : Promise.reject('Erro ao salvar edição'))
+    .then(() => {
+      alert('Atendimento editado com sucesso!');
+      fecharModal();
+      carregar();
+    })
+    .catch(err => alert(err));
+  }
 
-    carregar();
-  </script>
+  function fecharModal() {
+    atendimentoEditando = null;
+    document.getElementById('modalEditar').style.display = 'none';
+  }
+
+  carregarClientes();
+  carregar();
+</script>
 </body>
 </html>

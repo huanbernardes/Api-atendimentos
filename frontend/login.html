@@ -6,11 +6,11 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <form id="loginForm" autocomplete="yes">
+  <form id="loginForm" autocomplete="on">
     <h2>Login</h2>
     <input type="email" id="email" placeholder="Email" required />
     <input type="password" id="senha" placeholder="Senha" required />
-    <button onclick="login()">Entrar</button>
+    <button type="submit">Entrar</button>
     <p>Não tem conta? <a href="register.html">Cadastre-se</a></p>
   </form>
 
@@ -31,7 +31,9 @@
       const data = await res.json();
 
       if (res.ok && data.token) {
+        // Salva token e dados extras no localStorage
         localStorage.setItem('token', data.token);
+        localStorage.setItem('is_admin', data.is_admin); // útil no frontend
 
         // Decodificar o token para verificar se é admin
         const payload = JSON.parse(atob(data.token.split('.')[1]));
@@ -54,7 +56,5 @@
     }
   });
 </script>
-
-
 </body>
 </html>

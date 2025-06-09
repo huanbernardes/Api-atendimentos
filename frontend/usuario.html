@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meus Atendimentos</title>
+  <style>
+    body, html {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input, select, button {
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      width: auto;
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      margin-right: 5px;
+      padding: 10px 15px;
+      border-radius: 6px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .btn-danger {
+      background-color: #dc3545;
+      margin-top: 15px;
+    }
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .card strong {
+      display: block;
+      font-size: 1.1em;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Meus Atendimentos</h1>
+    <div id="usuarioNome" style="margin-bottom: 15px; font-weight: bold;"></div>
+
+    <label>Serviço:</label>
+    <input type="text" id="servico" placeholder="Serviço" />
+
+    <label>Data:</label>
+    <input type="date" id="data" />
+
+    <label>Hora:</label>
+    <input type="time" id="hora" />
+
+    <button onclick="adicionar()">Adicionar Atendimento</button>
+    <button onclick="logout()" class="btn-danger">Sair</button>
+
+    <div id="lista"></div>
+  </div>
+
+<script>
+  const api = 'http://localhost:3000/api/atendimentos';
+  const token = localStorage.getItem('token');
+  let clienteId = null;
+  let atendimentoEditando = null;
+
+  if (!token) {
+    alert('Você precisa estar logado');
+    window.location.href = 'login.html';
+  }
+
+  // Decodifica token para pegar info do cliente
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    clienteId = payload.id;       // Ajuste para o campo que identifica o cliente no token
+    const nome = payload.nome;    // Ajuste para o campo do nome no token
+    document.getElementById('usuarioNome').textContent = `Olá, ${nome}!`;
+  } catch(e) {
+    alert('Token inválido');
+    logout();
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = 'login.html';
+  }
+
+  // Carrega atendimentos só do cliente logado
+  function carregar() {
+    fetch(api + `?cliente_id=${clienteId}`, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => res.json())
+    .then(atendimentos => {
+      const lista = document.getElementById('lista');
+      lista.innerHTML = '';
+
+      atendimentos.forEach(a => {
+        const dataFormatada = a.data ? new Date(a.data).toLocaleDateString('pt-BR') : 'Data inválida';
+        const horaFormatada = a.hora ? a.hora.substring(0,5) : '--:--';
+
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <strong>${a.servico}</strong><br>
+          Data: ${dataFormatada}<br>
+          Hora: ${horaFormatada}<br>
+          <button onclick='abrirEdicao(${a.id}, "${a.servico}", "${a.data}", "${a.hora}")'>Editar</button>
+          <button onclick='excluir(${a.id})'>Excluir</button>
+        `;
+        lista.appendChild(div);
+      });
+    })
+    .catch(err => alert('Erro ao carregar atendimentos: ' + err.message));
+  }
+
+  function adicionar() {
+    const servico = document.getElementById('servico').value.trim();
+    const data = document.getElementById('data').value;
+    const hora = document.getElementById('hora').value;
+
+    if (!servico || !data || !hora) {
+      alert('Preencha todos os campos');
+      return;
+    }
+
+    fetch(api, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ servico, cliente_id: clienteId, data, hora })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Erro ao adicionar');
+      return res.json();
+    })
+    .then(() => {
+      alert('Atendimento adicionado!');
+      document.getElementById('servico').value = '';
+      document.getElementById('data').value = '';
+      document.getElementById('hora').value = '';
+      carregar();
+    })
+    .catch(err => alert(err.message));
+  }
+
+  function excluir(id) {
+    if (!confirm('Confirma exclusão?')) return;
+
+    fetch(`${api}/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Erro ao excluir');
+      alert('Atendimento excluído');
+      carregar();
+    })
+    .catch(err => alert(err.message));
+  }
+
+  // Modal simples de edição inline (sem janelas extras)
+  function abrirEdicao(id, servico, data, hora) {
+    atendimentoEditando = id;
+    document.getElementById('servico').value = servico;
+    document.getElementById('data').value = data;
+    document.getElementById('hora').value = hora;
+
+    // Muda botão adicionar para salvar edição
+    const botao = document.querySelector('button[onclick="adicionar()"]');
+    botao.textContent = 'Salvar edição';
+    botao.onclick = salvarEdicao;
+  }
+
+  function salvarEdicao() {
+    const servico = document.getElementById('servico').value.trim();
+    const data = document.getElementById('data').value;
+    const hora = document.getElementById('hora').value;
+
+    if (!servico || !data || !hora) {
+      alert('Preencha todos os campos');
+      return;
+    }
+
+    fetch(`${api}/${atendimentoEditando}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ servico, data, hora })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('Erro ao atualizar');
+      alert('Atendimento atualizado!');
+      atendimentoEditando = null;
+
+      // Restaura botão adicionar
+      const botao = document.querySelector('button[onclick="salvarEdicao()"]');
+      botao.textContent = 'Adicionar Atendimento';
+      botao.onclick = adicionar;
+
+      // Limpa formulário
+      document.getElementById('servico').value = '';
+      document.getElementById('data').value = '';
+      document.getElementById('hora').value = '';
+
+      carregar();
+    })
+    .catch(err => alert(err.message));
+  }
+
+  carregar();
+
+</script>
+</body>
+</html>
