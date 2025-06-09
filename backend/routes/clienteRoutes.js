@@ -1,20 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const { verificarToken } = require('../middlewares/authMiddleware');
 const clienteController = require('../controllers/clienteController');
 
-//  Lista todos os clientes
+router.use(verificarToken); // Todas as rotas precisam de autenticação
+
+// Rotas para clientes
 router.get('/', clienteController.listarTodos);
-
-//  Busca um cliente por ID
 router.get('/:id', clienteController.buscarPorId);
-
-// Cria um novo cliente
-router.post('/', clienteController.criar);
-
-//  Atualiza um cliente existente
+router.post('/', clienteController.criar);  // crie essa função no controller (exemplo abaixo)
 router.put('/:id', clienteController.atualizar);
-
-// Deleta um cliente
 router.delete('/:id', clienteController.deletar);
 
 module.exports = router;

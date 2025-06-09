@@ -2,13 +2,12 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 require('dotenv').config({ path: path.join(__dirname, 'config', '.env') });
-
 const { conexao, tabelas } = require('./models/bd_sql');
 const authRoutes = require('./routes/auth');
 const clienteRoutes = require('./routes/clienteRoutes');
 const atendimentoRoutes = require('./routes/atendimentoRoutes');
 const { verificarToken, verificarAdmin } = require('./middlewares/authMiddleware');
-
+const { verificarToken: autenticar } = require('./middlewares/authMiddleware');
 
 const app = express();
 
@@ -23,7 +22,8 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 // Rotas públicas
 app.use('/auth', authRoutes);
 app.use('/clientes', clienteRoutes);
-app.use('/api/atendimentos', atendimentoRoutes);
+app.use('/api/atendimentos', verificarToken, atendimentoRoutes);
+
 
 // Página de atendimentos (frontend)
 app.get('/atendimentos', (req, res) => {
@@ -39,7 +39,14 @@ app.get('/usuarios', verificarAdmin, async (req, res) => {
     res.status(500).json({ erro: err.message });
   }
 });
-
+app.get('/api/clientes', verificarToken, async (req, res) => {
+  try {
+  const [clientes] = await conexao.query('SELECT id, nome FROM clientes');
+  res.json(clientes);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
 // Inicializar servidor
 async function start() {
   try {

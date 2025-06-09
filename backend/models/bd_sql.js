@@ -4,25 +4,28 @@ const conexao = mysql.createPool({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'Profitalo'
+    database: 'Gmax'
 });
 
 class Tabelas {
     async init() {
-        await this.criarTabelaAtendimentos();
-        await this.criarTabelaUsuarios();
-        await this.criarTabelaClientes(); // <-- Nova tabela
-    }
+    await this.criarTabelaUsuarios();
+    await this.criarTabelaClientes(); 
+    await this.criarTabelaAtendimentos();
+}
 
     async criarTabelaAtendimentos() {
         const sql = `
             CREATE TABLE IF NOT EXISTS atendimentos (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                data_atendimento DATE,
-                hora TIME,
-                servico VARCHAR(100),
-                cliente VARCHAR(100)
-            )
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            data DATE,
+            hora TIME,
+            servico VARCHAR(100),
+            cliente_id INT,
+            usuario_id INT,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+            FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
+        )
         `;
         try {
             await conexao.query(sql);
@@ -56,7 +59,9 @@ class Tabelas {
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 nome VARCHAR(100) NOT NULL,
                 email VARCHAR(100) UNIQUE NOT NULL,
-                telefone VARCHAR(20)
+                telefone VARCHAR(20),
+                usuario_id INT,
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
             )
         `;
         try {
